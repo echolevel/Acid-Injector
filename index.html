@@ -11,7 +11,7 @@
                 font-family:monospace;
             }
 
-            input, button, ::-webkit-file-upload-button {
+            input, button, ::-webkit-file-upload-button, select {
                 font-family:monospace;
             }
 
@@ -19,6 +19,16 @@
     </head>
     <body style="">
         <h1>Acid Converter</h1>
+
+        <input type="file" id="fileinput" />
+        
+        <br/>
+        <br/>
+
+        <div id="output">
+
+        </div>
+        <br/>
 
         <select name="SequenceLength" id="user_sequencelength">
             <option value=1>1</option>
@@ -40,15 +50,11 @@
         </select> Sequence Length
 
         <br/><br/>
-
-        <input type="file" id="fileinput" />
+        <br/><br/>
         
-        <br/>
-        <div id="output">
+        
 
-        </div>
-        <br/>
-        <button id="btnGenerate">Generate .seq</button>
+        <button id="btnGenerate">Save .seq</button>
 
         <script src="./script.js" type="text/javascript"></script>
     </body>

@@ -1,12 +1,10 @@
-# AcidConverter
- 
 <!-- Output copied to clipboard! -->
 
 <!-----
 
 Yay, no errors, warnings, or alerts!
 
-Conversion time: 1.047 seconds.
+Conversion time: 0.981 seconds.
 
 
 Using this Markdown file:
@@ -19,8 +17,9 @@ Using this Markdown file:
 Conversion notes:
 
 * Docs to Markdown version 1.0β33
-* Mon Sep 19 2022 17:00:09 GMT-0700 (PDT)
+* Mon Sep 19 2022 17:04:28 GMT-0700 (PDT)
 * Source doc: Behringer TD-3 .seq file format
+* This is a partial selection. Check to make sure intra-doc links work.
 * Tables are currently converted to HTML tables.
 ----->
 
