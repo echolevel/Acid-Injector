@@ -118,10 +118,11 @@
             <pre id="output"></pre>
         </div>
 
-        <br/><br/>
+        
 
+        <h2>Usage Notes</h2>
         <p>
-            Usage notes:
+            
             <ol>
                 <li>
                     Set up the STING Max For Live device on a MIDI track in Ableton Live. If you've got Ableton's Wavetable instrument, there's a preset called Basic 303 Bass that's good for monitoring STING's output;
@@ -169,11 +170,6 @@
             <strong><a href="https://maxforlive.com/library/device/8357/sting-by-iftah-a-really-nice-acid-line-generator" target="_blank">STING</strong> by <strong>IFTAH</strong></a>
              is a <i>really nice</i> acid line generator for Ableton Live (Max For Live device). It generates really nice acid lines for the Roland TB-303.
         </p>
-        <p>
-            <a href="https://www.behringer.com/product.html?modelCode=P0E24" target="_blank">Synthtribe</a> is Behringer's Win/Mac software for various of its hardware synths, including its 303 knock-off the TD-3.
-            As well as handling firmware updates via USB MIDI, it sends and receives sysex dumps and even has a little sequence editor of its own built in.
-            It's not really nice, but it <i>is</i> pretty simple and reliable. And - surprisingly - it doesn't need to be installed, which means it doesn't litter your system with background processes, updaters and shortcuts.
-        </p>
 
         <p>
             The TD-3 has a function not found in the original 303 which randomly generates a pattern when you press 'Clear' and 'Start/Stop' simultaneously.
@@ -183,13 +179,20 @@
         </p>
 
         <p>
-            This converter is pure Javascript - lightweight and dependency free - but doesn't really do anything fancy.
-            If you export a 16-step MIDI clip from Ableton Live, regardless of tempo (or time signature, probably, but don't go crazy), you can use 
-            this converter to generate a .seq file that can be loaded into the Synthtribe software and then sent to your TD-3 via the 'Sequencer' page and 'Store' button.
+            <a href="https://www.behringer.com/product.html?modelCode=P0E24" target="_blank">Synthtribe</a> is Behringer's Win/Mac software for various of its hardware synths, including its 303 knock-off the TD-3.
+            As well as handling firmware updates via USB MIDI, it sends and receives sysex dumps and even has a little sequence editor of its own built in.
+            It's not really nice, but it <i>is</i> pretty simple and reliable. And - surprisingly - it doesn't need to be installed, which means it doesn't litter your system with background processes, updaters and shortcuts.
         </p>
 
         <p>
-            I did this on a bank holiday that unexpectedly occurred in September 2022 after a quick google search failed to throw up any results for 
+            This converter is pure Javascript - lightweight and dependency free - but doesn't really do anything fancy.
+            If you export a 16-step MIDI clip from Ableton Live, regardless of tempo (or time signature, probably, but don't go crazy), you can use 
+            this converter to generate a .seq file that can be loaded into the Synthtribe software and then sent to your TD-3 via the 'Sequencer' page and 'Store' button; or a sysex file that you 
+            can transmit to the TD-3 via lots of free sysex librarian programs and many DAWs.
+        </p>
+
+        <p>
+            I did this on an unexpected September 2022 bank holiday after a quick google search failed to throw up any results for 
             Behringer's proprietary file format. 
             
             Just my luck: after spending ages picking it apart and figuring out how to reliably write the appropriate
@@ -210,13 +213,13 @@
         <p>
             This is basically finished, unless I've overlooked or fucked up something fundamental that needs fixing. One more thing I might add is 
             some means of quickly constructing (or partially/wholly populating) a Synthtribe .sqs file, which is a full dump of TD-3 patterns with 
-            some extra header info that specifies Track/Pattern Group/Pattern Section identifiers for each pattern. I assume that'll work via sysexd as well.
+            some extra header info that specifies Track/Pattern Group/Pattern Section identifiers for each pattern. I assume that'll work via sysex as well.
             
         </p>
 
         
 
-        <h2>More notes</h2>
+        <h2>More notes / troubleshooting</h2>
         <p>
             
 
@@ -236,8 +239,8 @@
                 </li>
 
                 <li>
-                    Triplet: I don't think STING does triplets, or can be made to do so (correct me if I'm wrong), so my converter always leaves 
-                    the triplet flag unset. You can set it yourself if you fancy, but remember this limits maximum sequence length to 15 (multiple of 3, innit)
+                    Triplet: I don't think STING does triplets, or can be made to do so (correct me if I'm wrong). You can set it yourself if you fancy, but remember this limits maximum sequence length to 15 (multiple of 3, innit).
+                    The extra pitch step will be sent to the TD-3, but you won't hear it.
                 </li>
 
                 <li>
