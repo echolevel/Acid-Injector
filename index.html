@@ -48,43 +48,6 @@
             
         </p>
 
-        <p>
-            Usage notes:
-            <ol>
-                <li>
-                    Set up the STING Max For Live device on a MIDI track in Ableton Live. If you've got Ableton's Wavetable instrument, there's a preset called Basic 303 Bass that's good for monitoring STING's output;
-                    set the STING channel as its MIDI input so you can hear what STING's doing.
-                </li>
-                <li>
-                    Generate an acid line with STING that's disarmingly simplistic and catchy yet also beguilingly hypnotic and understatedly transcendental. This should only take one or two clicks.             
-                </li>
-                <li>
-                    Record the output to any MIDI track (e.g. the one you've got Wavetable on) and trim the resulting clip down until you've got just one loop of the pattern; 16 steps maximum. Consolidate it, then right click the clip and click 'Export MIDI Clip...'                    
-                </li>
-
-                <li>
-                    Click 'Choose MIDI file' below and choose the .mid clip you just exported. If your sequence is shorter than 16 steps, set Sequence Length accordingly.
-                </li>                
-                
-                <li>
-                    Assuming you don't get any warnings, click 'Save .seq' to generate the Synthtribe pattern file.
-                </li>
-
-                <li>
-                    Synthtribe will only show you anything useful when your TD-3 is plugged in with USB and switched on, so do that, then go to the Sequencer view.
-                </li>
-
-                <li>
-                    Click 'Import' to find and load the .seq file you just created. Then click 'Store' to send the pattern to the TD-3, bearing in mind 
-                    that the pattern will end up in the Pattern Group, Pattern Section and Pattern slot that you specify in the upper left. 
-                </li>         
-                                
-                <li>
-                    If you're using sysex, you can choose a Target Pattern Group/Slot before generating the file. Be careful - uploading to a slot will overwrite whatever's in it!
-                </li>
-            </ol>
-        </p>
-
         <input type="file" accept=".mid,.midi" id="fileinput" style="display: none;">
         <input type="button" id="fileinputcustom" onclick="document.getElementById('fileinput').click();" value="Choose MIDI file..."/>
         <br/>
@@ -148,6 +111,45 @@
         <button id="btnGenerate">Save .seq</button> <button id="sysexGenerate">Save .syx</button>
 
         <br/><br/>
+
+        <p>
+            Usage notes:
+            <ol>
+                <li>
+                    Set up the STING Max For Live device on a MIDI track in Ableton Live. If you've got Ableton's Wavetable instrument, there's a preset called Basic 303 Bass that's good for monitoring STING's output;
+                    set the STING channel as its MIDI input so you can hear what STING's doing.
+                </li>
+                <li>
+                    Generate an acid line with STING that's disarmingly simplistic and catchy yet also beguilingly hypnotic and understatedly transcendental. This should only take one or two clicks.             
+                </li>
+                <li>
+                    Record the output to any MIDI track (e.g. the one you've got Wavetable on) and trim the resulting clip down until you've got just one loop of the pattern; 16 steps maximum. Consolidate it, then right click the clip and click 'Export MIDI Clip...'                    
+                </li>
+
+                <li>
+                    Click 'Choose MIDI file' below and choose the .mid clip you just exported. If your sequence is shorter than 16 steps, set Sequence Length accordingly.
+                </li>                
+                
+                <li>
+                    Assuming you don't get any warnings, click 'Save .seq' to generate the Synthtribe pattern file.
+                </li>
+
+                <li>
+                    Synthtribe will only show you anything useful when your TD-3 is plugged in with USB and switched on, so do that, then go to the Sequencer view.
+                </li>
+
+                <li>
+                    Click 'Import' to find and load the .seq file you just created. Then click 'Store' to send the pattern to the TD-3, bearing in mind 
+                    that the pattern will end up in the Pattern Group, Pattern Section and Pattern slot that you specify in the upper left. 
+                </li>         
+                                
+                <li>
+                    If you're using sysex, you can choose a Target Pattern Group/Slot before generating the file. Be careful - uploading to a slot will overwrite whatever's in it!
+                </li>
+            </ol>
+        </p>
+
+       
 
         <h2>About</h2>
 
