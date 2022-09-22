@@ -71,6 +71,8 @@ var outBytes = new Uint8Array(146);
 var midiIsValid = false;
 var ouptutIsReady = false;
 
+var user_tripletMode = false;
+
 document.getElementById("btnGenerate").addEventListener("click", generateOutput);
 document.getElementById("sysexGenerate").addEventListener("click", generateSysex);
 
@@ -79,6 +81,10 @@ document.getElementById("user_sequencelength").addEventListener('change', functi
     console.log(userSequenceLength);
 })
 
+// Force that damn triplet checkbox to false
+document.getElementById("user_triplet").addEventListener("click", function(){
+    user_tripletMode = document.getElementById("user_triplet").checked;
+})
 
 document.querySelector('input').addEventListener('change', function() {
     var reader = new FileReader();
@@ -137,7 +143,7 @@ document.querySelector('input').addEventListener('change', function() {
             outdiv.appendChild(document.createTextNode('PPQN: ' + divisionValue[1].toString()));
             outdiv.appendChild(document.createElement('br'));
 
-            outdiv.appendChild(document.createTextNode('Everything\'s probably fine. Check you\'re happy with the Sequence Length, then hit Save .seq'));
+            outdiv.appendChild(document.createTextNode('Everything\'s probably fine. Check you\'re happy with the Sequence Length, then hit Save .seq/.syx'));
             outdiv.appendChild(document.createElement('br'));
         }
         else
@@ -452,8 +458,32 @@ document.querySelector('input').addEventListener('change', function() {
         
 
         // Some more updates for the user-facing output could be added here
-        //outdiv.appendChild(document.createTextNode('some update'));
-        //outdiv.appendChild(document.createElement('br'));
+        var activePitchCount = 0;
+        var accentCount = 0;
+        var slideCount = 0;
+        for(var s = 0; s < pitchSteps.length; s++)
+        {
+            if(pitchSteps[s].pitch > 0x00)
+            {
+                activePitchCount++;
+                if(pitchSteps[s].accented)
+                {
+                    accentCount++;
+                }
+                if(pitchSteps[s].slid)
+                {
+                    slideCount++;
+                }
+            }
+        }
+        outdiv.appendChild(document.createTextNode('Active pitch steps: ' + activePitchCount));
+        outdiv.appendChild(document.createElement('br'));
+
+        outdiv.appendChild(document.createTextNode('Accented notes: ' + accentCount));
+        outdiv.appendChild(document.createElement('br'));
+
+        outdiv.appendChild(document.createTextNode('Slid notes: ' + slideCount));
+        outdiv.appendChild(document.createElement('br'));
 
         // Prepare the output file binary
         // Reset the array
@@ -587,7 +617,14 @@ document.querySelector('input').addEventListener('change', function() {
 
         // Write the triplet flag (2 bytes)
         outBytes[writeOffset] = 0x00;
-        outBytes[writeOffset+1] = 0x00;
+        if(user_tripletMode)
+        {
+            outBytes[writeOffset+1] = 0x01;
+        }
+        else
+        {
+            outBytes[writeOffset+1] = 0x00;
+        }        
         writeOffset += 2;
 
         // write offset 133

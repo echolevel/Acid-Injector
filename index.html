@@ -28,6 +28,12 @@
             li {
                 padding-bottom:1em;
             }
+
+            pre {
+                background-color: #121619;
+                color: #6cb079;
+                padding: 4px;
+            }
             
             footer {
                 text-align: right;
@@ -48,15 +54,7 @@
             
         </p>
 
-        <input type="file" accept=".mid,.midi" id="fileinput" style="display: none;">
-        <input type="button" id="fileinputcustom" onclick="document.getElementById('fileinput').click();" value="Choose MIDI file..."/>
-        <br/>
-        <br/>
-
-        <div id="output">
-
-        </div>
-        <br/>
+        <input type="file" accept=".mid,.midi" id="fileinput" style="display: none;"/>        
 
         <select name="SequenceLength" id="user_sequencelength">
             <option value=1>1</option>
@@ -103,12 +101,22 @@
             <option value=14>B 7</option>
             <option value=15>B 8</option>
         </select> Target Pattern Slot (sysex only)
-
+        <br/><br/>
+        <input type="checkbox" id="user_triplet" />Triplet mode
         <br/><br/>
         
+        <input type="button" id="fileinputcustom" onclick="document.getElementById('fileinput').click();" value="Choose MIDI file..."/>
         
+        <br/>
+        <br/>
 
         <button id="btnGenerate">Save .seq</button> <button id="sysexGenerate">Save .syx</button>
+
+        <br/><br/>
+
+        <div >
+            <pre id="output"></pre>
+        </div>
 
         <br/><br/>
 
@@ -127,7 +135,11 @@
                 </li>
 
                 <li>
-                    Click 'Choose MIDI file' below and choose the .mid clip you just exported. If your sequence is shorter than 16 steps, set Sequence Length accordingly.
+                    Optionally set  preferences for Sequence Length, Target Pattern Group/Slot and Triplet Mode BEFORE loading a MIDI file.
+                </li>            
+
+                <li>
+                    Click 'Choose MIDI file' below and choose the .mid clip you just exported.
                 </li>                
                 
                 <li>
@@ -198,11 +210,8 @@
         <p>
             This is basically finished, unless I've overlooked or fucked up something fundamental that needs fixing. One more thing I might add is 
             some means of quickly constructing (or partially/wholly populating) a Synthtribe .sqs file, which is a full dump of TD-3 patterns with 
-            some extra header info that specifies Track/Pattern Group/Pattern Section identifiers for each pattern.
-            <br/><br/>
-            I don't reeeeeally want to go all Web MIDI on this, especially since Brad's done it better already (see above), but assuming Synthtribe's just doing a basic sysex transmission
-            it would probably be better to remove the dependence on Behringer's software (which is not guaranteed to be around or maintained forever) and just export a sysex file that you 
-            can send using the sysex librarian/transfer utility of your choice.
+            some extra header info that specifies Track/Pattern Group/Pattern Section identifiers for each pattern. I assume that'll work via sysexd as well.
+            
         </p>
 
         
