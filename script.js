@@ -185,12 +185,18 @@ document.querySelector('input').addEventListener('change', function() {
         
         var totalTime = 0; // in ticks
 
+        // Sequencer PPQN, usually 96 for Ableton Live MIDI clips
+        var ticksPerQuarterNote = divisionValue[1];
+
+        // To be obtained from the time signature meta event(s)
         var timeSignatureNumerator = 0;
         var timeSignatureDenominator = 0;
+        var clocksPerMetronomePulse = 0;
+        var thirtysecondNotesPerBeat = 0;
         var quarterNotesPerBeat = 0;
-        var pulsesPerQuarterNote = 0;
-        var microsecondsPerQuarterNote = 0;
-
+        var beatsPerMinute = 120; // Ableton doesn't put tempo in a clip unless you've specifically added a tempo change meta event; 120 is the MIDI standard default
+        
+        
         // We'll fill this in our time-calc loop, then add noteOns and noteOffs to it later 
         // to help us detect  tied notes
         var timestampEvents = {};
@@ -198,15 +204,19 @@ document.querySelector('input').addEventListener('change', function() {
         // We'll loop through once to get the total time in ticks, and calculate
         // how many ticks each step lasts, and also check some meta events,
         // then we'll loop again to create an array of note objects and timings.
-        for(var i = 0; i < array.length; i++)
+        for(var i = offset; i < array.length; i++)
         {
             if(array[i] >= 0x80)
             {           
 
-                
-
                 var timedelta = array[i-1]; // in ticks
                 totalTime += timedelta;
+                if(array[i] === 0x90)
+                {
+                    //console.log("Note Timestamp found: " + timedelta + " total : " + totalTime);
+                }
+                
+                //console.log("Event found: " + d2h(array[i]) + " with time delta " + timedelta + " totalTime: " + totalTime + " offset: " + i);
                 
                 // Push a new Timestamp Event
                 timestampEvents[totalTime] = {
@@ -255,9 +265,9 @@ document.querySelector('input').addEventListener('change', function() {
                         }
                         // There's another one that I don't even slightly understand right now and can't be arsed to figure out
 
-                        pulsesPerQuarterNote = array[i+5];
-
-                        microsecondsPerQuarterNote = array[i+6]; // remember: 1,000,000 microseconds per second
+                        clocksPerMetronomePulse = array[i+5];
+                        
+                        thirtysecondNotesPerBeat = array[i+6]; 
                         
                     }
                     else if(array[i+1] == 0x2f)
@@ -268,6 +278,22 @@ document.querySelector('input').addEventListener('change', function() {
 
             }
         }
+        
+        // Le sigh. How MIDI time signature meta messages work:
+        // 0xff 0x58 0x04 - this is a MIDI time sig meta event announcing itself to have 4 bytes of data
+        //                0x04 - numerator
+        //                      0x02 - denominator: 2 should be raised to the power of denominator to obtain time sig denominator, e.g. 2^2 = 4
+        //                          0x24 - metronome pulse: will click once every n (in this case 36) MIDI clocks
+        //                               0x08 - there are 8 demisemiquavers (32nd notes) per beat
+        // So our step duration is our bar duration in MIDI clocks (ticks?) divided by 16 steps
+        // 
+        
+        // Nevertheless, I think this is how we should be doing it.
+        stepDuration = (ticksPerQuarterNote * 4) / 16; // should equal 24
+        console.log("stepDuration: " + stepDuration + " totalTime: " + totalTime);
+
+
+        console.log(timestampEvents);
         
         // We're looking to fill the following arrays (all max length 16):
         //      Pitch data
@@ -285,6 +311,9 @@ document.querySelector('input').addEventListener('change', function() {
         // Triplet flag - setting this is easy, but under which conditions? Does it have any meaning beyond limiting pattern length to 15?
         // Sequence length - we should maybe make this configurable on the UI, to be honest
         // Ties and Rests...gnarly bitwise stuff ahoy.
+
+
+        
 
         var pitchSteps = [];                
 
@@ -310,10 +339,13 @@ document.querySelector('input').addEventListener('change', function() {
         // Four bytes each for ties and rests that we'll manipulate later            
         var restMap = new Uint8Array([0b00001111, 0b00001111, 0b00001111, 0b00001111]);
         var tieMap = new Uint8Array([0b00001111, 0b00001111, 0b00001111, 0b00001111]);
+                
         
-        var stepDuration = totalTime / 16; // in ticks
+
         var elapsedTime = 0; // in ticks
         var currentstep = 0;
+
+        var elapsedTicksThisStep = 0;
 
         // Start from the current offset position (after the header etc.) so we're only
         // looping the Track chunk
@@ -331,6 +363,17 @@ document.querySelector('input').addEventListener('change', function() {
 
                 // Current step is used for our own temporary array indexing, and then to calculate the rest/tie bitwise stuff
                 currentstep = Math.round((elapsedTime) / stepDuration);       
+                
+                /*
+                elapsedTicksThisStep+= array[i-1];
+                if(elapsedTicksThisStep > stepDuration)
+                {
+                    currentstep++;
+                    elapsedTicksThisStep = 0;
+                }                
+                */
+               
+                
 
                 if(currentstep > 15)
                 {
@@ -338,6 +381,11 @@ document.querySelector('input').addEventListener('change', function() {
                 }
                 
                 timestampEvents[elapsedTime].currentstep = currentstep;
+
+                if(currentstep == 11)
+                {
+                    console.log("current step is 11. noteon: " + timestampEvents[elapsedTime].noteOn + "eventsarray.timestamp : " + timestampEvents[elapsedTime].timestamp);
+                }
 
                 // This gives us only notes
                 if(array[i] <= 0xEF)
@@ -349,7 +397,7 @@ document.querySelector('input').addEventListener('change', function() {
                     // Found NoteOn
                     if((array[i] >= 0x90 && array[i] < 0xA0))
                     {
-                        //console.log("Found a Note ON with value " + noteTD3 + " with velo " + velo + " at index " + i + ", step " + currentstep) ;                        
+                        console.log("Found a Note ON with value " + noteTD3 + " with velo " + velo + " at index " + i + ", step " + currentstep) ;                        
                         
                         pitchSteps[currentstep].pitch = noteTD3;
                         pitchSteps[currentstep].timestamp = elapsedTime;
@@ -492,6 +540,10 @@ document.querySelector('input').addEventListener('change', function() {
         var writeOffset = 0;
 
         // Write the pitches
+
+        // This STILL isn't right: we may need to remove tied notes (ie the note after the slide),
+        // which means not doing all this in sequence and writing to fixed offsets instead.
+        // 
         
         var pitchWriteCounter = 0;
 
@@ -521,14 +573,8 @@ document.querySelector('input').addEventListener('change', function() {
                     //console.log("Duration: " + pitchSteps[i].duration);
                 }
                 
-            }
-            else
-            {                
-                outBytes[writeOffset] = 0x01;
-                outBytes[writeOffset+1] = 0x08;
-                writeOffset += 2;
-            }
-            
+                
+            }            
         }
 
         // The 303 decouples its 'pool' of notes from its timing data (hence Pitch Mode and Time Mode on the hardware),
