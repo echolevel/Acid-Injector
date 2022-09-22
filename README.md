@@ -4,3 +4,5 @@ them to your TD-3 (Roland TB-303 clone). It also generates .syx (sysex) files so
 
 Browser-based, but pure Javascript and no WebMIDI/etc is involved - it just turns MIDI files into .seq/.syx files. 
 <a href="https://echolevel.github.io/Acid-Injector/">Try it here!</a>
+
+If you want a more feature-rich and aesthetically TD-3 manager, check out the awesome <a href="https://303patterns.com/">303patterns.com</a> by AudioPump. I found it to be a bit fussy about my admittedly complex and bewildering MIDI driver(s) situation, plus I made Acid Injector before I knew about it, but you might find it suits you better!
