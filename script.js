@@ -288,7 +288,8 @@ document.querySelector('input').addEventListener('change', function() {
         for(var d = 0; d < 16; d++)
         {
             pitchSteps.push({
-                "pitch": 0x18,
+                //"pitch": 0x18,
+                "pitch": 0x00, // If any pitch is 0x00 by the time we're writing our pitches, ignore it and shuffle everything up; pad the end with 0x18
                 "timestamp":0,
                 "step": d,
                 "duration":0,
@@ -452,6 +453,8 @@ document.querySelector('input').addEventListener('change', function() {
 
         //console.log(timestampEvents);
 
+        // We check for tied notes by checking if one timestamp (ie step boundary) contains a NoteOff AND a NoteOn for the same note - 
+        // this means the old note should be treated as slid and the new note as slid-TO; the old note gets the slide flag set.
         for(let key in timestampEvents)
         {
             var cstep = timestampEvents[key].currentstep;
@@ -461,7 +464,7 @@ document.querySelector('input').addEventListener('change', function() {
                 console.log("Found a tie at step " + cstep);
                 // Jesus, after all that hassle, it's just a slide
                 pitchSteps[cstep-1].slid = true;
-                pitchSteps[cstep-1].tied = true;
+                //pitchSteps[cstep-1].tied = true;
 
                 slideFlags[cstep-1] = true;                
                 
@@ -469,15 +472,7 @@ document.querySelector('input').addEventListener('change', function() {
         }
 
      
-        console.log("Pitch Steps:");
-        console.log(pitchSteps);
-        console.log("Accent Flags:");
-        console.log(accentFlags);
-        console.log("Slide Flags:");
-        console.log(slideFlags);
-        console.log("restMap");
-        console.log(d2b(restMap));
-        console.log(d2h(restMap));
+        
 
         // Some more updates for the user-facing output could be added here
         //outdiv.appendChild(document.createTextNode('some update'));
@@ -490,11 +485,15 @@ document.querySelector('input').addEventListener('change', function() {
         var writeOffset = 0;
 
         // Write the pitches
+        
+        var pitchWriteCounter = 0;
+
         for(var i = 0; i < 16; i++)
         {            
             if(pitchSteps[i] !== undefined)
             {
-                if(pitchSteps[i].hasOwnProperty('pitch'))
+                // Only write if pitch is greater than 0x00 (ie if it's ever been set)
+                if(pitchSteps[i].hasOwnProperty('pitch') && pitchSteps[i].pitch > 0x00)
                 {
                     // 0x18 is MIDI C1 (decimal 24), and C2 to the TD-3.
                     // Sting generates out of range notes. It would be nice if it didn't...
@@ -509,6 +508,9 @@ document.querySelector('input').addEventListener('change', function() {
                     outBytes[writeOffset+1] = lsb;
                     writeOffset += 2;
 
+                    // Use this to check how many valid pitches were entered into the pool so we can pad it afterwards if necessary
+                    pitchWriteCounter++; 
+                    
                     console.log("Duration: " + pitchSteps[i].duration);
                 }
                 
@@ -520,6 +522,22 @@ document.querySelector('input').addEventListener('change', function() {
                 writeOffset += 2;
             }
             
+        }
+
+        // The 303 decouples its 'pool' of notes from its timing data (hence Pitch Mode and Time Mode on the hardware),
+        // which means that we can't have empty gaps in the pitch data where we think there should be empty gaps. No 
+        // whitespace, basically. The sequencer reads through the timing data and looks for the next note every time there's
+        // a non-rest step (and stops looking for notes if there's a tie). That's why we only added pitch bytes where
+        // a genuine pitch had occurred, and why we now pad the remaining pitch bytes with the 0x01 0x08 default pitch.
+        if(pitchWriteCounter < 16)
+        {
+            var pitchDiff = 16 - pitchWriteCounter;
+            for(var d = 0; d < pitchDiff; d++)
+            {
+                outBytes[writeOffset] = 0x01;
+                outBytes[writeOffset+1] = 0x08;
+                writeOffset +=2;
+            }
         }
 
         // write offset 67
@@ -660,7 +678,17 @@ document.querySelector('input').addEventListener('change', function() {
         writeOffset += 4;
                 
         outputIsReady = true;
-            
+           
+        console.log("Pitch Steps:");
+        console.log(pitchSteps);
+        console.log("Accent Flags:");
+        console.log(accentFlags);
+        console.log("Slide Flags:");
+        console.log(slideFlags);
+        console.log("restMap");
+        console.log(d2b(restMap));
+        console.log(d2h(restMap));
+
     }
 
     reader.readAsArrayBuffer(this.files[0]);
