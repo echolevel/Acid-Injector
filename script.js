@@ -432,7 +432,7 @@ document.querySelector('input').addEventListener('change', function() {
                 // There's no audible difference on the TD-3 between a tied note and a slide to the same note
                 if(pitchSteps[p].duration > stepDuration)
                 {
-                    console.log("Found a tied note at pitchStep index " + p + ": note duration was longer than a full step");
+                    //console.log("Found a tied note at pitchStep index " + p + ": note duration was longer than a full step");
                 }
             }
         }
@@ -447,7 +447,7 @@ document.querySelector('input').addEventListener('change', function() {
 
             if(timestampEvents[key].noteOff == timestampEvents[key].noteOn && cstep > 0 && cstep < 16)
             {
-                console.log("Found a tie at step " + cstep);
+                //console.log("Found a tie at step " + cstep);
                 // Jesus, after all that hassle, it's just a slide
                 pitchSteps[cstep-1].slid = true;                
                 
@@ -518,7 +518,7 @@ document.querySelector('input').addEventListener('change', function() {
                     // Use this to check how many valid pitches were entered into the pool so we can pad it afterwards if necessary
                     pitchWriteCounter++; 
                     
-                    console.log("Duration: " + pitchSteps[i].duration);
+                    //console.log("Duration: " + pitchSteps[i].duration);
                 }
                 
             }
@@ -722,7 +722,7 @@ document.querySelector('input').addEventListener('change', function() {
            
         console.log("Pitch Steps:");
         console.log(pitchSteps);
-        console.log("restMap");
+        console.log("restMap (binary then hex):");
         console.log(d2b(restMap));
         console.log(d2h(restMap));
 
