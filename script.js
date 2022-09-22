@@ -72,6 +72,7 @@ var midiIsValid = false;
 var ouptutIsReady = false;
 
 document.getElementById("btnGenerate").addEventListener("click", generateOutput);
+document.getElementById("sysexGenerate").addEventListener("click", generateSysex);
 
 document.getElementById("user_sequencelength").addEventListener('change', function() {
     userSequenceLength = this.value;
@@ -136,7 +137,7 @@ document.querySelector('input').addEventListener('change', function() {
             outdiv.appendChild(document.createTextNode('PPQN: ' + divisionValue[1].toString()));
             outdiv.appendChild(document.createElement('br'));
 
-            outdiv.appendChild(document.createTextNode('Everything\'s probably fine'));
+            outdiv.appendChild(document.createTextNode('Everything\'s probably fine. Check you\'re happy with the Sequence Length, then hit Save .seq'));
             outdiv.appendChild(document.createElement('br'));
         }
         else
@@ -184,6 +185,10 @@ document.querySelector('input').addEventListener('change', function() {
         var pulsesPerQuarterNote = 0;
         var microsecondsPerQuarterNote = 0;
 
+        // We'll fill this in our time-calc loop, then add noteOns and noteOffs to it later 
+        // to help us detect  tied notes
+        var timestampEvents = {};
+
         // We'll loop through once to get the total time in ticks, and calculate
         // how many ticks each step lasts, and also check some meta events,
         // then we'll loop again to create an array of note objects and timings.
@@ -191,9 +196,20 @@ document.querySelector('input').addEventListener('change', function() {
         {
             if(array[i] >= 0x80)
             {           
+
+                
+
                 var timedelta = array[i-1]; // in ticks
                 totalTime += timedelta;
                 
+                // Push a new Timestamp Event
+                timestampEvents[totalTime] = {
+                    "timestamp": totalTime,
+                    "noteOff": 0,
+                    "noteOn": 0,
+                    "step": 0
+                };
+
                 // It's important to know these events exist, but we don't care 
                 // about them. Although we might care about Time Signature...
                 if(array[i] == 0xff)
@@ -246,7 +262,6 @@ document.querySelector('input').addEventListener('change', function() {
 
             }
         }
-
         
         // We're looking to fill the following arrays (all max length 16):
         //      Pitch data
@@ -268,6 +283,7 @@ document.querySelector('input').addEventListener('change', function() {
         var pitchSteps = [];
         var accentFlags = [];
         var slideFlags = [];
+        
 
         for(var d = 0; d < 16; d++)
         {
@@ -275,7 +291,10 @@ document.querySelector('input').addEventListener('change', function() {
                 "pitch": 0x18,
                 "timestamp":0,
                 "step": d,
-                "duration":0
+                "duration":0,
+                "rest": true,
+                "tied": false,
+                "slid": false
             });
 
             accentFlags.push(false);
@@ -305,7 +324,6 @@ document.querySelector('input').addEventListener('change', function() {
             // This gives us only Notes or Meta Events
             if(array[i] >= 0x80) 
             {
-
                                             
                 // Doesn't matter what the event is, we should increment elapsedTime by the event's delta.
                 // NOTE: this isn't robust enough to work for sequences with enormous gaps between notes.
@@ -313,35 +331,38 @@ document.querySelector('input').addEventListener('change', function() {
                  elapsedTime += array[i-1];
 
                 // Current step is used for our own temporary array indexing, and then to calculate the rest/tie bitwise stuff
-                // It's also inaccurate and I'm not sure how to improve it.
                 currentstep = Math.round((elapsedTime) / stepDuration);       
+
+                if(currentstep > 15)
+                {
+                    break;
+                }
+                
+                timestampEvents[elapsedTime].currentstep = currentstep;
 
                 // This gives us only notes
                 if(array[i] <= 0xEF)
                 {
+                    var noteMIDI = array[i+1];
+                    var noteTD3 = noteMIDI - 12;
+                    var velo = array[i+2];
 
                     // Found NoteOn
                     if((array[i] >= 0x90 && array[i] < 0xA0))
                     {
-                        //console.log("Found a Note ON with value " + array[i+1] + " with velo " + array[i+2] + " at index " + i) ;
-                        /*
-                        pitchSteps.push(
-                            {
-                                "pitch": array[i+1] - 12,
-                                "timestamp": elapsedTime,
-                                "step" : currentstep,
-                                "duration": 0
-                            }
-                        );
-                        */
-                        pitchSteps[currentstep].pitch = array[i+1] - 12;
+                        //console.log("Found a Note ON with value " + noteTD3 + " with velo " + velo + " at index " + i + ", step " + currentstep) ;                        
+                        
+                        pitchSteps[currentstep].pitch = noteTD3;
                         pitchSteps[currentstep].timestamp = elapsedTime;
                         pitchSteps[currentstep].duration = 0;
                         pitchSteps[currentstep].step = currentstep;
-                                                
-                        if(array[i+2] >= 0x64)
+                        pitchSteps[currentstep].rest = false;
+                                    
+                        timestampEvents[elapsedTime].noteOn = noteTD3;
+
+                        if(velo >= 0x64)
                         {
-                            console.log("Setting accent at step " + currentstep);
+                            //console.log("Setting accent at step " + currentstep);
                             accentFlags[currentstep] = true;
                         }
                         else
@@ -349,57 +370,35 @@ document.querySelector('input').addEventListener('change', function() {
                             accentFlags[currentstep] = false;
                         }
 
-                        if(hungNoteValue > 0)
+                        if(currentstep > 0)
                         {
-                            // hungNoteValue should be reset to 0 by noteoff. 
-                            // If it's greater than, this note is slid. Slided. Slidden. Slidulterated.
-                            slideFlags[currentstep] = true;
-                            
-                        }
-                        else
-                        {
-                            slideFlags[currentstep] = false;
-                        }
+                            if(hungNoteValue > 0)
+                            {
+                                // hungNoteValue should be reset to 0 by noteoff. 
+                                // If it's greater than, the note is slid. Slided. Slidden. Slidulterated.
+                                // Actually, the previous step gets the slide flag, so this note is slid TO.
+                                slideFlags[currentstep-1] = true;
+                                pitchSteps[currentstep-1].slid = true;
 
-                        hungNoteValue = array[i+1];
+                                
+                            }
+                            else
+                            {
+                                slideFlags[currentstep-1] = false;
+                            }
+                        }
                         
-                        // Unset the rest for this step
-                        // Layout:
-                        // XXXX7654,XXXX3210,XXXXFEDC,XXXXBA98
 
-                        // Rests set by default: 00001111, left nibble ignored
-                        // Clear right-nibble bits to un-rest notes
-                            
-                        var maskbyte = new Uint8Array([0b00000001]);        
-                        var maskbyte = 0b00000001; 
-                        
-                        if(currentstep < 4)
-                        {     
-                            //console.log("maskbyte: " + d2b(maskbyte<< currentstep) + " step: " + currentstep);
-                            restMap[1] &= ~(maskbyte << currentstep);                                
-                        }
-                        else if(currentstep >= 4 && currentstep < 8)
-                        {                                
-                            restMap[0] &= ~(maskbyte << (currentstep - 4));       
-                        }
-                        else if(currentstep >= 8 && currentstep < 12)
-                        {
-                            restMap[3] &= ~(maskbyte << (currentstep - 8));       
-                        }
-                        else if(currentstep >= 12 && currentstep < 16)
-                        {                                                                
-                            restMap[2] &= ~(maskbyte << (currentstep - 12));       
-                        }
-
-                        // Ties: I suppose we set a tie if the previous note is the same as this note 
-                        // but there's been no noteoff?
+                        hungNoteValue = noteTD3;
 
                     }
 
                     // Found NoteOff
                     if(array[i] >= 0x80 && array[i] < 0x90)
                     {
-                        //console.log("Found a Note OFF with value " + array[i+1] + " with velo " + array[i+2] + " at timestamp " + elapsedTime) ;
+                        //console.log("Found a Note OFF with value " + noteTD3 + " with velo " + velo + " at timestamp " + elapsedTime + ", step " + currentstep) ;
+
+                        timestampEvents[elapsedTime].noteOff = noteTD3;
 
                         // Work back through the existing notes until we find a match, then calculate that note's duration in ticks                        
                         var n = currentstep;
@@ -409,10 +408,10 @@ document.querySelector('input').addEventListener('change', function() {
                             {
                                 if(pitchSteps[n].hasOwnProperty('pitch'))
                                 {
-                                    if (pitchSteps[n].pitch == array[i+1]-12 && pitchSteps[n].step != currentstep)
+                                    if (pitchSteps[n].pitch == noteTD3 && pitchSteps[n].step != currentstep)
                                     {                                        
                                         pitchSteps[n].duration = elapsedTime - pitchSteps[n].timestamp;
-                                        console.log("Step " + currentstep +  ":found a matching NoteOn for NoteOff " + (array[i+1]-12) + " at step " + currentstep + ", setting duration " + pitchSteps[n].duration + ". Elapsed: " + elapsedTime);
+                                        //console.log("Step " + currentstep +  ":found a matching NoteOn for NoteOff " + noteTD3 + " at step " + currentstep + ", setting duration " + pitchSteps[n].duration + ". Elapsed: " + elapsedTime);
                                         break;
                                     }
                                     
@@ -420,17 +419,13 @@ document.querySelector('input').addEventListener('change', function() {
                             }
                         }
 
-                        
-
                         // If this noteoff corresponds to the current hungNoteValue, reset it to zero.
                         // If not, the note will hang and we'll set a slide flag on the next loop.
-                        if(hungNoteValue == array[i+1])
+                        if(hungNoteValue == noteTD3)
                         {
-                            hungNoteValue = 0;
+                            hungNoteValue = 0;                            
                         }
                     }
-
-                    // I foresee a problem with slid notes having the wrong pitch but...hopefully not.
 
                 }
 
@@ -439,6 +434,41 @@ document.querySelector('input').addEventListener('change', function() {
 
         }
 
+     
+        // Detect tied notes
+        for(var p = 0; p < pitchSteps.length; p++)
+        {
+            if(pitchSteps[p].hasOwnProperty('duration'))
+            {
+                // On the TD-3, setting a tie step pushes the other notes along.
+                // The first step can't be a tie, or there'd never be a Note On.
+                // There's no audible difference on the TD-3 between a tied note and a slide to the same note
+                if(pitchSteps[p].duration > stepDuration)
+                {
+                    console.log("Found a tied note at pitchStep index " + p + ": note duration was longer than a full step");
+                }
+            }
+        }
+
+        //console.log(timestampEvents);
+
+        for(let key in timestampEvents)
+        {
+            var cstep = timestampEvents[key].currentstep;
+
+            if(timestampEvents[key].noteOff == timestampEvents[key].noteOn && cstep > 0 && cstep < 16)
+            {
+                console.log("Found a tie at step " + cstep);
+                // Jesus, after all that hassle, it's just a slide
+                pitchSteps[cstep-1].slid = true;
+                pitchSteps[cstep-1].tied = true;
+
+                slideFlags[cstep-1] = true;                
+                
+            }            
+        }
+
+     
         console.log("Pitch Steps:");
         console.log(pitchSteps);
         console.log("Accent Flags:");
@@ -449,86 +479,15 @@ document.querySelector('input').addEventListener('change', function() {
         console.log(d2b(restMap));
         console.log(d2h(restMap));
 
+        // Some more updates for the user-facing output could be added here
+        //outdiv.appendChild(document.createTextNode('some update'));
+        //outdiv.appendChild(document.createElement('br'));
+
         // Prepare the output file binary
         // Reset the array
-        outBytes = new Uint8Array(146);
+        outBytes = new Uint8Array(110);
         
         var writeOffset = 0;
-
-        outBytes[writeOffset] = 0x23; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x98; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x54; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x76; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x08; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x54; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x44; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x2D; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x33; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x0A; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x31; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x2E; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x33; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x2E; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x37; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x70; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-        outBytes[writeOffset] = 0x00; 
-        writeOffset++;
-
-        // write offset 36
 
         // Write the pitches
         for(var i = 0; i < 16; i++)
@@ -627,19 +586,32 @@ document.querySelector('input').addEventListener('change', function() {
         // 2 bytes of padding
         writeOffset += 2;
 
-        // Detect tied notes
-        for(var p = 0; p < pitchSteps.length; p++)
+
+
+        for( var t = 0; t < 16; t++)
         {
-            if(pitchSteps[p].hasOwnProperty('duration'))
+            var maskbyte = 0b00000001;
+
+            if(pitchSteps[t].tied)
             {
-                // On the TD-3, setting a tie step pushes the other notes along.
-                // The first step can't be a tie, or there'd never be a Note On.
-                // There's no audible difference on the TD-3 between a tied note and a slide to the same note
-                if(pitchSteps[p].duration > stepDuration/1.5)
-                {
-                    console.log("Found a tied note at pitchStep index " + p + ": note duration was longer than a full step");
-                }
+                if(t < 4)
+            {
+                tieMap[1] |= ~(maskbyte << t);
             }
+            else if (t >= 4 && t < 8)
+            {
+                tieMap[0] |= ~(maskbyte << (t - 4));
+            }
+            else if (t >= 8 && t < 12)
+            {
+                tieMap[3] |= ~(maskbyte << (t - 8));
+            }
+            else if ( t >= 12 && t < 16)
+            {
+                tieMap[2] |= ~(maskbyte << (t - 12));
+            }
+            }
+            
         }
 
         // Write the ties
@@ -648,6 +620,37 @@ document.querySelector('input').addEventListener('change', function() {
         outBytes[writeOffset+2] = tieMap[2];
         outBytes[writeOffset+3] = tieMap[3];
         writeOffset += 4;
+
+        console.log(d2h(tieMap));
+
+        // Work out the rests
+        for(var r = 0; r < 16; r++)
+        {
+            var maskbyte = new Uint8Array([0b00000001]);        
+            var maskbyte = 0b00000001; 
+
+            if(!pitchSteps[r].rest)
+            {
+                if(r < 4)
+                {     
+                    //console.log("maskbyte: " + d2b(maskbyte<< currentstep) + " step: " + currentstep);
+                    restMap[1] &= ~(maskbyte << r);                                
+                }
+                else if(r >= 4 && r < 8)
+                {                                
+                    restMap[0] &= ~(maskbyte << (r - 4));       
+                }
+                else if(r >= 8 && r < 12)
+                {
+                    restMap[3] &= ~(maskbyte << (r - 8));       
+                }
+                else if(r >= 12 && r < 16)
+                {                                                                
+                    restMap[2] &= ~(maskbyte << (r - 12));       
+                }
+            }
+            
+        }
 
         // Write the rests
         outBytes[writeOffset] = restMap[0];
@@ -689,8 +692,35 @@ function checkInput()
 
 function generateOutput()
 {
+    // Prepare the output file binary
+    // Reset the array
+    seqHeader = new Uint8Array([0x23, 0x98, 0x54, 0x76, 0x00, 0x00, 0x00, 0x08, 0x00, 0x54, 0x00, 0x44, 0x00, 0x2D, 0x00, 0x33, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x31, 0x00, 0x2E, 0x00, 0x33, 0x00, 0x2E, 0x00, 0x37, 0x00, 0x00, 0x00, 0x70, 0x00, 0x00]);
+    // outBytes should be 110 bytes long
+
+    var finalBytes = new Uint8Array(seqHeader.length + outBytes.length);
+    finalBytes.set(seqHeader, 0);
+    finalBytes.set(outBytes, seqHeader.length);
+
     if(midiIsValid && outputIsReady)
     {
-        saveOutBytes([outBytes], 'output.seq');       
+        saveOutBytes([finalBytes], 'td3pattern.seq');       
     }    
+}
+
+function generateSysex()
+{
+   // Prepare the output file binary
+    // sysex start byte, standard header (7 bytes), pattern group 0-3, patt section 0-7 (A) 9-15 (B), padding (2 bytes)
+    syxHeader = new Uint8Array([0xF0, 0x00, 0x20, 0x32, 0x00, 0x01, 0x0A, 0x78, document.getElementById('user_patterngroup').value, document.getElementById('user_patternslot').value, 0x00, 0x00]);        
+
+    // outBytes should be 110 bytes long. Add a byte at the end to end the sysex message (F7)
+    var finalBytes = new Uint8Array(syxHeader.length + outBytes.length + 1);
+    finalBytes.set(syxHeader, 0);
+    finalBytes.set(outBytes, syxHeader.length);
+    // sysex message end byte
+    finalBytes[finalBytes.length -1] = 0xF7;
+    if(midiIsValid && outputIsReady)
+    {
+        saveOutBytes([finalBytes], 'td3pattern.syx');
+    }
 }
