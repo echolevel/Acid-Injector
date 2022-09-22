@@ -280,10 +280,7 @@ document.querySelector('input').addEventListener('change', function() {
         // Sequence length - we should maybe make this configurable on the UI, to be honest
         // Ties and Rests...gnarly bitwise stuff ahoy.
 
-        var pitchSteps = [];
-        var accentFlags = [];
-        var slideFlags = [];
-        
+        var pitchSteps = [];                
 
         for(var d = 0; d < 16; d++)
         {
@@ -295,12 +292,10 @@ document.querySelector('input').addEventListener('change', function() {
                 "duration":0,
                 "rest": true,
                 "tied": false,
-                "slid": false
+                "slid": false,
+                "accented": false
             });
 
-            accentFlags.push(false);
-
-            slideFlags.push(false);
         }        
 
         // Use this to detect Slides
@@ -310,12 +305,9 @@ document.querySelector('input').addEventListener('change', function() {
         var restMap = new Uint8Array([0b00001111, 0b00001111, 0b00001111, 0b00001111]);
         var tieMap = new Uint8Array([0b00001111, 0b00001111, 0b00001111, 0b00001111]);
         
-
-
         var stepDuration = totalTime / 16; // in ticks
         var elapsedTime = 0; // in ticks
         var currentstep = 0;
-        var tickCounter = 0; // add ticks to this to check whether currentstep should be incremented
 
         // Start from the current offset position (after the header etc.) so we're only
         // looping the Track chunk
@@ -363,13 +355,8 @@ document.querySelector('input').addEventListener('change', function() {
 
                         if(velo >= 0x64)
                         {
-                            //console.log("Setting accent at step " + currentstep);
-                            accentFlags[currentstep] = true;
-                        }
-                        else
-                        {
-                            accentFlags[currentstep] = false;
-                        }
+                            pitchSteps[currentstep].accented = true;
+                        }                        
 
                         if(currentstep > 0)
                         {
@@ -378,14 +365,7 @@ document.querySelector('input').addEventListener('change', function() {
                                 // hungNoteValue should be reset to 0 by noteoff. 
                                 // If it's greater than, the note is slid. Slided. Slidden. Slidulterated.
                                 // Actually, the previous step gets the slide flag, so this note is slid TO.
-                                slideFlags[currentstep-1] = true;
                                 pitchSteps[currentstep-1].slid = true;
-
-                                
-                            }
-                            else
-                            {
-                                slideFlags[currentstep-1] = false;
                             }
                         }
                         
@@ -463,10 +443,7 @@ document.querySelector('input').addEventListener('change', function() {
             {
                 console.log("Found a tie at step " + cstep);
                 // Jesus, after all that hassle, it's just a slide
-                pitchSteps[cstep-1].slid = true;
-                //pitchSteps[cstep-1].tied = true;
-
-                slideFlags[cstep-1] = true;                
+                pitchSteps[cstep-1].slid = true;                
                 
             }            
         }
@@ -528,57 +505,85 @@ document.querySelector('input').addEventListener('change', function() {
         // which means that we can't have empty gaps in the pitch data where we think there should be empty gaps. No 
         // whitespace, basically. The sequencer reads through the timing data and looks for the next note every time there's
         // a non-rest step (and stops looking for notes if there's a tie). That's why we only added pitch bytes where
-        // a genuine pitch had occurred, and why we now pad the remaining pitch bytes with the 0x01 0x08 default pitch.
-        if(pitchWriteCounter < 16)
+        // a genuine pitch had occurred, and why we now pad the remaining pitch bytes with the 0x01 0x08 default pitch.        
+        while(pitchWriteCounter < 16)
         {
-            var pitchDiff = 16 - pitchWriteCounter;
-            for(var d = 0; d < pitchDiff; d++)
+            outBytes[writeOffset] = 0x01;
+            outBytes[writeOffset+1] = 0x08;
+            writeOffset += 2;
+            pitchWriteCounter++;
+        }
+
+        // Write the accent flags 
+        pitchWriteCounter = 0; // re-use this
+        for(var i = 0; i < 16; i++)
+        {
+            if(pitchSteps[i].pitch > 0x00)
             {
-                outBytes[writeOffset] = 0x01;
-                outBytes[writeOffset+1] = 0x08;
-                writeOffset +=2;
+                if(pitchSteps[i].accented)
+                {
+                    outBytes[writeOffset] = 0x00;
+                    outBytes[writeOffset+1] = 0x01;
+                    writeOffset += 2;
+
+                    pitchWriteCounter++;
+                }
+                else
+                {
+                    outBytes[writeOffset] = 0x00;
+                    outBytes[writeOffset+1] = 0x00;
+                    writeOffset += 2;
+
+                    pitchWriteCounter++;
+                }
+                
             }
         }
 
-        // write offset 67
+        // Pad the remainder of the accent flag chunk        
+        while(pitchWriteCounter < 16)
+        {
+            outBytes[writeOffset] = 0x00;
+            outBytes[writeOffset+1] = 0x00;
+            writeOffset += 2;
+            pitchWriteCounter++;
+        }
+
+        // Write the slide flags 
+        pitchWriteCounter = 0; // re-use this
+        for(var i = 0; i < 16; i++)
+        {
+            if(pitchSteps[i].pitch > 0x00)
+            {
+                if(pitchSteps[i].slid)
+                {
+                    outBytes[writeOffset] = 0x00;
+                    outBytes[writeOffset+1] = 0x01;
+                    writeOffset += 2;
+
+                    pitchWriteCounter++;
+                }
+                else
+                {
+                    outBytes[writeOffset] = 0x00;
+                    outBytes[writeOffset+1] = 0x00;
+                    writeOffset += 2;
+
+                    pitchWriteCounter++;
+                }
+                
+            }
+        }
+
+        // Pad the remainder of the slide flag chunk
+        while(pitchWriteCounter < 16)
+        {
+            outBytes[writeOffset] = 0x00;
+            outBytes[writeOffset+1] = 0x00;
+            writeOffset += 2;
+            pitchWriteCounter++;
+        }
         
-        // Write the accent flags
-        for(var i = 0; i < 16; i++)
-        {
-            if(accentFlags[i] === 'undefined')
-            {
-                outBytes[writeOffset] = 0x00;
-                outBytes[writeOffset+1] = 0x01;
-                writeOffset += 2;
-            }
-            else
-            {
-                outBytes[writeOffset] = 0x00;
-                outBytes[writeOffset+1] = accentFlags[i];
-                writeOffset += 2;
-            }
-        }
-
-        // write offset 99
-
-        // Write the slide flags
-        for(var i = 0; i < 16; i++)
-        {
-            if(slideFlags[i] === 'undefined')
-            {
-                outBytes[writeOffset] = 0x00;
-                outBytes[writeOffset+1] = 0x01;
-                writeOffset += 2;
-            }
-            else
-            {
-                outBytes[writeOffset] = 0x00;
-                outBytes[writeOffset+1] = slideFlags[i];
-                writeOffset += 2;
-            }
-        }
-
-        // write offset 131
 
         // Write the triplet flag (2 bytes)
         outBytes[writeOffset] = 0x00;
@@ -603,7 +608,6 @@ document.querySelector('input').addEventListener('change', function() {
         
         // 2 bytes of padding
         writeOffset += 2;
-
 
 
         for( var t = 0; t < 16; t++)
@@ -681,10 +685,6 @@ document.querySelector('input').addEventListener('change', function() {
            
         console.log("Pitch Steps:");
         console.log(pitchSteps);
-        console.log("Accent Flags:");
-        console.log(accentFlags);
-        console.log("Slide Flags:");
-        console.log(slideFlags);
         console.log("restMap");
         console.log(d2b(restMap));
         console.log(d2h(restMap));
